@@ -1,18 +1,9 @@
+import { btopSvg } from '../lib/btop-svg.js';
 import { getSimulation } from '../lib/simulation.js';
-
-const escapeXml = (value) => String(value).replace(/[<>&'"]/g, (character) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[character]);
-const bar = (value, width = 360) => Math.round(Math.min(100, value) / 100 * width);
-const gib = (bytes) => `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
 
 export default function handler(req, res) {
   const data = getSimulation();
-  const load = Math.min(100, data.cpu.load[0] / data.cpu.cores * 100);
-  const memory = data.memory.used / data.memory.total * 100;
-  const rows = data.processes.map((process, index) => `<text x="540" y="${330 + index * 31}" class="text-bright">${escapeXml(process.command)}</text><rect x="800" y="${322 + index * 31}" width="150" height="13" class="bar-bg"/><rect x="800" y="${322 + index * 31}" width="${bar(process.cpu / 50 * 100, 150)}" height="13" fill="#a8d98e"/><text x="970" y="${330 + index * 31}" class="text-green">${process.cpu.toFixed(1)}  ${process.memory.toFixed(1)}</text>`).join('');
-  const skills = ['Python', 'Django', 'JavaScript', 'HTML/CSS', 'SQL', 'PostgreSQL', 'C/C++', 'Linux', 'Git', 'Docker'];
-  const stack = skills.map((skill, index) => `<text x="630" y="${112 + index * 25}" class="text-bright">${skill}</text><text x="1070" y="${112 + index * 25}" class="text-green">${[85, 65, 60, 70, 45, 60, 30, 70, 80, 55][index]}%</text>`).join('');
-
   res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.status(200).send(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1152 768"><style>text{font:16px monospace;dominant-baseline:middle}.bg{fill:#080b09}.panel{fill:#0d120f;stroke:#36503b;stroke-width:2}.bright{fill:#d7e7d5}.green{fill:#a8d98e}.cyan{fill:#8edbd1}.yellow{fill:#f1ca4d}.muted{fill:#759078}.text-bright{fill:#d7e7d5}.text-green{fill:#a8d98e}.bar-bg{fill:#1b281e}</style><rect width="1152" height="768" class="bg"/><rect x="7" y="7" width="1138" height="754" class="panel"/><text x="20" y="25" class="green">simulation :: sys.resource_allocation</text><text x="1010" y="25" class="yellow">LIVE</text><rect x="14" y="45" width="592" height="190" rx="5" class="panel"/><text x="25" y="60" class="cyan">cpu -- usage</text><text x="25" y="95" class="bright">load 1m</text><rect x="120" y="87" width="360" height="16" class="bar-bg"/><rect x="120" y="87" width="${bar(load)}" height="16" class="green"/><text x="492" y="95" class="green">${load.toFixed(1)}%</text><text x="25" y="135" class="bright">cores</text><text x="120" y="135" class="green">${data.cpu.cores}</text><text x="25" y="170" class="bright">mode</text><text x="120" y="170" class="green">simulated</text><text x="25" y="210" class="muted">no host data collected</text><rect x="615" y="45" width="523" height="310" rx="5" class="panel"/><text x="630" y="60" class="cyan">stack -- tools</text>${stack}<rect x="14" y="247" width="500" height="505" rx="5" class="panel"/><text x="25" y="265" class="cyan">mem -- allocation</text><text x="25" y="305" class="bright">used</text><rect x="120" y="297" width="340" height="16" class="bar-bg"/><rect x="120" y="297" width="${bar(memory, 340)}" height="16" class="yellow"/><text x="25" y="350" class="bright">total</text><text x="120" y="350" class="green">${gib(data.memory.total)}</text><text x="25" y="385" class="bright">available</text><text x="120" y="385" class="green">${gib(data.memory.available)}</text><rect x="524" y="365" width="614" height="387" rx="5" class="panel"/><text x="540" y="385" class="cyan">processes -- simulated</text><text x="540" y="415" class="muted">process                 cpu %   mem %</text>${rows}<text x="540" y="710" class="muted">simulated data :: refresh endpoint for latest frame</text></svg>`);
+  res.status(200).send(btopSvg(data));
 }

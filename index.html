@@ -2,10 +2,87 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=/api/btop">
-  <title>btop-readme-api</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>btop live</title>
+  <style>
+    :root { color-scheme: dark; --bg: #080b09; --panel: #0d120f; --line: #36503b; --text: #d7e7d5; --muted: #759078; --green: #a8d98e; --yellow: #f1ca4d; --cyan: #8edbd1; --purple: #c78fe0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--bg); color: var(--text); font: 14px/1.4 "Fira Code", "Cascadia Code", monospace; }
+    main { max-width: 1280px; margin: 0 auto; padding: 12px; }
+    header, section { border: 1px solid var(--line); background: var(--panel); }
+    header { display: flex; justify-content: space-between; gap: 16px; padding: 9px 12px; color: var(--green); }
+    header span:last-child { color: var(--yellow); }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 10px; margin-top: 10px; }
+    section { padding: 12px; min-width: 0; }
+    h2 { margin: 0 0 12px; font-size: 14px; font-weight: 400; color: var(--cyan); }
+    .metric { display: grid; grid-template-columns: 88px 1fr 70px; align-items: center; gap: 10px; margin: 10px 0; }
+    .metric label { color: var(--text); }
+    .bar { height: 14px; background: #1b281e; overflow: hidden; }
+    .fill { height: 100%; width: 0; background: var(--green); transition: width .35s ease; }
+    .value { color: var(--green); text-align: right; }
+    .subgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat { padding: 8px 0; color: var(--muted); }
+    .stat strong { display: block; color: var(--text); font-weight: 400; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 6px 4px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    th { color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--line); }
+    td:nth-child(2), td:nth-child(3) { color: var(--green); text-align: right; }
+    td:last-child { max-width: 280px; color: var(--text); }
+    .status { color: var(--muted); }
+    .error { color: #f18b7b; }
+    @media (max-width: 760px) { header { flex-direction: column; gap: 2px; } .grid { grid-template-columns: 1fr; } .metric { grid-template-columns: 72px 1fr 60px; } th:first-child, td:first-child { display: none; } }
+  </style>
 </head>
 <body>
-  <p>This is the <code>btop-readme-api</code> service. The SVG endpoint lives at <a href="/api/btop">/api/btop</a>.</p>
+  <main>
+    <header><span id="host">connecting :: live system monitor</span><span id="clock">--:--:--</span></header>
+    <div class="grid">
+      <div>
+        <section><h2>cpu ── usage</h2><div class="metric"><label>load 1m</label><div class="bar"><div class="fill" id="load-bar"></div></div><span class="value" id="load">--</span></div><div class="subgrid"><div class="stat">cores<strong id="cores">--</strong></div><div class="stat">system<strong id="platform">--</strong></div></div></section>
+        <section style="margin-top:10px"><h2>mem ── allocation</h2><div class="metric"><label>used</label><div class="bar"><div class="fill" id="memory-bar"></div></div><span class="value" id="memory">--</span></div><div class="subgrid"><div class="stat">total<strong id="total-memory">--</strong></div><div class="stat">available<strong id="available-memory">--</strong></div></div></section>
+      </div>
+      <section><h2>processes ── top cpu consumers</h2><table><thead><tr><th>pid</th><th>cpu %</th><th>mem %</th><th>command</th></tr></thead><tbody id="processes"><tr><td colspan="4" class="status">reading /proc ...</td></tr></tbody></table></section>
+    </div>
+    <p class="status" id="status">refreshing every 1000ms</p>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const formatBytes = (bytes) => `${(bytes / 1073741824).toFixed(1)} GiB`;
+    const setMetric = (id, value, suffix = '') => { $(id).textContent = `${value}${suffix}`; };
+    async function refresh() {
+      try {
+        const response = await fetch('/api/btop', { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const load = Math.min(100, data.cpu.load[0] / data.cpu.cores * 100);
+        const memory = data.memory.used / data.memory.total * 100;
+        $('host').textContent = `${data.hostname} :: ${data.cpu.model}`;
+        $('clock').textContent = new Date(data.timestamp).toLocaleTimeString();
+        $('platform').textContent = data.platform;
+        setMetric('cores', data.cpu.cores);
+        setMetric('load', load.toFixed(1), '%');
+        setMetric('memory', memory.toFixed(1), '%');
+        $('load-bar').style.width = `${load}%`;
+        $('memory-bar').style.width = `${memory}%`;
+        setMetric('total-memory', formatBytes(data.memory.total));
+        setMetric('available-memory', formatBytes(data.memory.available));
+        const processTable = $('processes');
+        processTable.replaceChildren();
+        data.processes.forEach((process) => {
+          const row = document.createElement('tr');
+          [process.pid, process.cpu.toFixed(1), process.memory.toFixed(1), process.command].forEach((value) => {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.append(cell);
+          });
+          processTable.append(row);
+        });
+        $('status').textContent = `uptime ${Math.floor(data.uptime / 86400)}d ${new Date(data.uptime * 1000).toISOString().slice(11, 19)} :: live`;
+        $('status').className = 'status';
+      } catch (error) { $('status').textContent = `connection error: ${error.message}`; $('status').className = 'error'; }
+    }
+    refresh();
+    setInterval(refresh, 1000);
+  </script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 .vercel
 .env*
+node_modules/
 api/.git
 api/.vercel

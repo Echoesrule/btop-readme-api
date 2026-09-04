@@ -1,5 +1,5 @@
 # btop-readme-api
 
-<div align="center">
-	<img src="https://btop-api.vercel.app/api/btop" width="100%" alt="Simulated btop Dashboard" />
-</div>
+[![Simulated btop Dashboard](https://btop-api.vercel.app/api/btop-gif)](https://btop-api.vercel.app/)
+
+[Open the live simulation](https://btop-api.vercel.app/)

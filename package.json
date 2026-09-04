@@ -4,5 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "vercel dev"
+  },
+  "dependencies": {
+    "sharp": "^0.35.4"
   }
 }

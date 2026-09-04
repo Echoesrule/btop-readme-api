@@ -54,7 +54,7 @@
     const setMetric = (id, value, suffix = '') => { $(id).textContent = `${value}${suffix}`; };
     async function refresh() {
       try {
-        const response = await fetch('/api/btop', { cache: 'no-store' });
+        const response = await fetch('/api/data', { cache: 'no-store' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         const load = Math.min(100, data.cpu.load[0] / data.cpu.cores * 100);

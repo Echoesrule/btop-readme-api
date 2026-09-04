@@ -29,19 +29,22 @@
     td:nth-child(2), td:nth-child(3) { color: var(--green); text-align: right; }
     td:last-child { max-width: 280px; color: var(--text); }
     .status { color: var(--muted); }
+    .stack { display: flex; flex-wrap: wrap; gap: 7px; }
+    .stack span { border: 1px solid var(--line); padding: 4px 7px; color: var(--green); }
     .error { color: #f18b7b; }
     @media (max-width: 760px) { header { flex-direction: column; gap: 2px; } .grid { grid-template-columns: 1fr; } .metric { grid-template-columns: 72px 1fr 60px; } th:first-child, td:first-child { display: none; } }
   </style>
 </head>
 <body>
   <main>
-    <header><span id="host">connecting :: live system monitor</span><span id="clock">--:--:--</span></header>
+    <header><span>simulation :: live system monitor</span><span id="clock">--:--:--</span></header>
     <div class="grid">
       <div>
-        <section><h2>cpu ── usage</h2><div class="metric"><label>load 1m</label><div class="bar"><div class="fill" id="load-bar"></div></div><span class="value" id="load">--</span></div><div class="subgrid"><div class="stat">cores<strong id="cores">--</strong></div><div class="stat">system<strong id="platform">--</strong></div></div></section>
+        <section><h2>cpu ── usage</h2><div class="metric"><label>load 1m</label><div class="bar"><div class="fill" id="load-bar"></div></div><span class="value" id="load">--</span></div><div class="subgrid"><div class="stat">cores<strong id="cores">--</strong></div><div class="stat">mode<strong>simulated</strong></div></div></section>
         <section style="margin-top:10px"><h2>mem ── allocation</h2><div class="metric"><label>used</label><div class="bar"><div class="fill" id="memory-bar"></div></div><span class="value" id="memory">--</span></div><div class="subgrid"><div class="stat">total<strong id="total-memory">--</strong></div><div class="stat">available<strong id="available-memory">--</strong></div></div></section>
+        <section style="margin-top:10px"><h2>stack ── tools</h2><div class="stack"><span>Python</span><span>Django</span><span>JavaScript</span><span>HTML/CSS</span><span>SQL</span><span>PostgreSQL</span><span>C/C++</span><span>Linux</span><span>Git</span><span>Docker</span></div></section>
       </div>
-      <section><h2>processes ── top cpu consumers</h2><table><thead><tr><th>pid</th><th>cpu %</th><th>mem %</th><th>command</th></tr></thead><tbody id="processes"><tr><td colspan="4" class="status">reading /proc ...</td></tr></tbody></table></section>
+      <section><h2>processes ── simulated resource usage</h2><table><thead><tr><th>process</th><th>cpu %</th><th>mem %</th></tr></thead><tbody id="processes"><tr><td colspan="3" class="status">starting simulation ...</td></tr></tbody></table></section>
     </div>
     <p class="status" id="status">refreshing every 1000ms</p>
   </main>
@@ -56,9 +59,7 @@
         const data = await response.json();
         const load = Math.min(100, data.cpu.load[0] / data.cpu.cores * 100);
         const memory = data.memory.used / data.memory.total * 100;
-        $('host').textContent = `${data.hostname} :: ${data.cpu.model}`;
         $('clock').textContent = new Date(data.timestamp).toLocaleTimeString();
-        $('platform').textContent = data.platform;
         setMetric('cores', data.cpu.cores);
         setMetric('load', load.toFixed(1), '%');
         setMetric('memory', memory.toFixed(1), '%');
@@ -70,14 +71,14 @@
         processTable.replaceChildren();
         data.processes.forEach((process) => {
           const row = document.createElement('tr');
-          [process.pid, process.cpu.toFixed(1), process.memory.toFixed(1), process.command].forEach((value) => {
+          [process.command, process.cpu.toFixed(1), process.memory.toFixed(1)].forEach((value) => {
             const cell = document.createElement('td');
             cell.textContent = value;
             row.append(cell);
           });
           processTable.append(row);
         });
-        $('status').textContent = `uptime ${Math.floor(data.uptime / 86400)}d ${new Date(data.uptime * 1000).toISOString().slice(11, 19)} :: live`;
+        $('status').textContent = `uptime ${Math.floor(data.uptime / 86400)}d ${new Date(data.uptime * 1000).toISOString().slice(11, 19)} :: simulated data`;
         $('status').className = 'status';
       } catch (error) { $('status').textContent = `connection error: ${error.message}`; $('status').className = 'error'; }
     }

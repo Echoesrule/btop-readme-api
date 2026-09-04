@@ -1,52 +1,28 @@
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+const processNames = ['python', 'django-server', 'node', 'postgres', 'docker', 'git', 'vite', 'code'];
 
-const execFileAsync = promisify(execFile);
+function wave(seed, offset = 0) {
+  return (Math.sin(seed / 1300 + offset) + 1) / 2;
+}
 
-function parseMemory() {
-  return fs.readFile('/proc/meminfo', 'utf8').then((contents) => {
-    const values = Object.fromEntries(
-      contents.split('\n').flatMap((line) => {
-        const match = line.match(/^(\w+):\s+(\d+)/);
-        return match ? [[match[1], Number(match[2]) * 1024]] : [];
-      }),
-    );
+export default function handler(req, res) {
+  const timestamp = Date.now();
+  const tick = Math.floor(timestamp / 1000);
+  const memoryTotal = 16 * 1024 ** 3;
+  const memoryUsed = memoryTotal * (0.38 + wave(timestamp, 1.2) * 0.27);
 
-    const total = values.MemTotal || os.totalmem();
-    const available = values.MemAvailable || os.freemem();
-    return { total, available, used: total - available };
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.status(200).json({
+    simulated: true,
+    cpu: { cores: 8, load: [1.1 + wave(timestamp, 0.4) * 3.8] },
+    memory: { total: memoryTotal, used: memoryUsed, available: memoryTotal - memoryUsed },
+    uptime: 42 * 86400 + 18 * 3600 + tick % 3600,
+    processes: processNames.map((command, index) => ({
+      pid: 1000 + index,
+      cpu: 3 + wave(timestamp, index) * (index === 0 ? 42 : 18),
+      memory: 1 + wave(timestamp, index + 2) * 8,
+      command,
+    })).sort((a, b) => b.cpu - a.cpu),
+    timestamp,
   });
-}
-
-async function getProcesses() {
-  try {
-    const { stdout } = await execFileAsync('ps', ['-eo', 'pid,pcpu,pmem,comm', '--sort=-pcpu'], { maxBuffer: 1024 * 1024 });
-    return stdout.trim().split('\n').slice(1, 13).map((line) => {
-      const match = line.trim().match(/^(\d+)\s+(\S+)\s+(\S+)\s+(.+)$/);
-      return match ? { pid: Number(match[1]), cpu: Number(match[2]), memory: Number(match[3]), command: match[4] } : null;
-    }).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-export default async function handler(req, res) {
-  try {
-    const [memory, processes] = await Promise.all([parseMemory(), getProcesses()]);
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.status(200).json({
-      hostname: os.hostname(),
-      platform: `${os.type()} ${os.release()}`,
-      cpu: { model: os.cpus()[0]?.model || 'unknown', cores: os.cpus().length, load: os.loadavg() },
-      memory,
-      uptime: os.uptime(),
-      processes,
-      timestamp: Date.now(),
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
 }
